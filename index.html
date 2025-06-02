@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Camme+OCR</title>
+<style>
+  /* Reset & basics */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: #121212;
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1 {
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    color: #f0a500;
+    letter-spacing: 0.05em;
+  }
+  /* Container */
+  #app {
+    max-width: 480px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: rgba(255 255 255 / 0.05);
+    border-radius: 20px;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 8px 24px rgb(240 165 0 / 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  /* Video with filter */
+  #video {
+    width: 100%;
+    border-radius: 20px;
+    filter: sepia(0.25) saturate(1.6) contrast(1.2) brightness(1.05);
+    box-shadow: 0 8px 20px rgb(240 165 0 / 0.4);
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #222;
+  }
+  /* Buttons */
+  .btn {
+    background: #f0a500;
+    color: #121212;
+    border: none;
+    padding: 0.8rem 1.4rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.15s ease;
+    user-select: none;
+    box-shadow: 0 4px 15px rgb(240 165 0 / 0.5);
+  }
+  .btn:hover {
+    background: #d48806;
+    transform: scale(1.05);
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+  /* Captured photo container */
+  #captured-container {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgb(240 165 0 / 0.6);
+  }
+  #captured {
+    width: 100%;
+    display: block;
+    border-radius: 20px;
+  }
+  /* OCR result container */
+  #ocr-result {
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(255 255 255 / 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    font-size: 1rem;
+    line-height: 1.3;
+    white-space: pre-wrap;
+    user-select: text;
+    box-shadow: inset 0 0 8px rgb(240 165 0 / 0.5);
+  }
+  /* Loader */
+  #loader {
+    display: none;
+    margin-top: 1rem;
+    color: #f0a500;
+    font-weight: 600;
+    text-align: center;
+  }
+  /* Responsive */
+  @media (max-width: 520px) {
+    #app {
+      padding: 1rem;
+    }
+    .btn {
+      font-size: 1rem;
+      padding: 0.7rem 1.2rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>Camme+OCR</h1>
+<div id="app">
+  <video id="video" autoplay playsinline></video>
+  <button id="captureBtn" class="btn">Capture Photo</button>
+
+  <div id="captured-container" style="display:none;">
+    <img id="captured" alt="Captured photo" />
+  </div>
+
+  <button id="ocrBtn" class="btn" style="display:none;">Scan Text (OCR)</button>
+  <div id="loader">Recognizing text...might take some seconds</div>
+  <pre id="ocr-result"></pre>
+</div>
+
+<!-- Tesseract.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+
+<script>
+  const video = document.getElementById('video');
+  const captureBtn = document.getElementById('captureBtn');
+  const capturedContainer = document.getElementById('captured-container');
+  const capturedImg = document.getElementById('captured');
+  const ocrBtn = document.getElementById('ocrBtn');
+  const ocrResult = document.getElementById('ocr-result');
+  const loader = document.getElementById('loader');
+
+  // Request camera access and stream to video element
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      video.srcObject = stream;
+    } catch (err) {
+      alert('Error accessing camera: ' + err.message);
+    }
+  }
+
+  // Capture photo with filter baked in
+  function capturePhoto() {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+
+    // Apply same Instagram-style filter to canvas context
+    ctx.filter = 'sepia(0.25) saturate(1.6) contrast(1.2) brightness(1.05)';
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataURL = canvas.toDataURL('image/png');
+    capturedImg.src = dataURL;
+    capturedContainer.style.display = 'block';
+    ocrBtn.style.display = 'inline-block';
+    ocrResult.textContent = '';
+  }
+
+  // OCR on captured image using Tesseract.js
+  async function recognizeText() {
+    ocrResult.textContent = '';
+    loader.style.display = 'block';
+    ocrBtn.disabled = true;
+    try {
+      const { data: { text } } = await Tesseract.recognize(
+        capturedImg.src,
+        'eng',
+        {
+          logger: m => {
+            // Optional: show progress in loader or console
+            // loader.textContent = `Recognizing text... ${(m.progress * 100).toFixed(0)}%`;
+          }
+        }
+      );
+      ocrResult.textContent = text.trim() || '(No text found)';
+    } catch (e) {
+      ocrResult.textContent = 'OCR Error: ' + e.message;
+    }
+    loader.style.display = 'none';
+    ocrBtn.disabled = false;
+  }
+
+  // Event listeners
+  captureBtn.addEventListener('click', capturePhoto);
+  ocrBtn.addEventListener('click', recognizeText);
+
+  // Start camera on page load
+  startCamera();
+</script>
+
+</body>
+</html>
