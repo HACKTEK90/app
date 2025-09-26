@@ -1,21 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title></title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Iframe</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+    }
+    iframe {
+      border: none;           /* Remove default border */
+      width: 100vw;           /* Full viewport width */
+      height: 100vh;          /* Full viewport height */
+      display: block;         /* Remove unwanted spacing */
+    }
+  </style>
 </head>
 <body>
-   
-
-
-    <iframe src="https://hacktek90.github.io/BLACK-Ice/" width: "100vw",
-        height: "100vh",
-        border: "none",
-        overflow: "hidden",
-        scrollbar-width: "none" ></iframe>
-
+  <iframe src="https://hacktek90.github.io/BLACK-Ice/" title="Responsive Iframe"></iframe>
 </body>
 </html>
-
-
